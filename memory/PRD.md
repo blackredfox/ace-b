@@ -22,15 +22,28 @@ Task 3 — RuleSet (Pre/Post Rule Wrapper)
 - Keep validation minimal, but explicitly reject negative `step_id`
 - Add tests for before switch, after switch, boundary, consistency, and negative `step_id`
 
+Task 4 — Episode Builder
+- Implement `build_episode_spec(config, episode_id: str) -> EpisodeSpec`
+- Add a minimal `BenchmarkConfig` dataclass with only the fields needed for generation
+- Keep generation deterministic from the base seed and episode id
+- Generate a unique alphabet, a non-constant input stream, distinct non-zero shifts with modulo non-equivalence, and a middle-band switch step
+- Return a valid `EpisodeSpec` without bypassing validation
+- Add tests for validity, switch-step bounds, shift constraints, input stream constraints, and determinism
+
 ## Architecture decisions
 - Created a minimal benchmark package structure under `aceb/` aligned with the implementation plan
 - Kept primitive transformation logic in `aceb.rules.shift.ShiftRule`
 - Kept deterministic episode metadata in `aceb.env.episode.EpisodeSpec`
-- Added `aceb.rules.ruleset.RuleSet` as a small composition layer that schedules between two `ShiftRule` instances without introducing environment behavior or history
-- Limited validation to lightweight guardrails that protect the data contract and boundary semantics without adding broader business logic
-- Kept tests dependency-light with standard-library `unittest`, while also ensuring plain `pytest` works via `tests/conftest.py`
+- Added `aceb.rules.ruleset.RuleSet` as a small composition layer that schedules between two `ShiftRule` instances without environment behavior
+- Added a minimal `aceb.config.BenchmarkConfig` contract for generation only
+- Implemented episode generation in `aceb.generator.builder` using only the Python standard library
+- Used SHA-256 over `base_seed:episode_id` to derive deterministic episode-level seeds
+- Kept validation lightweight and focused on correctness of generation constraints rather than broad business rules
 
 ## What's been implemented
+- `aceb/config.py`
+- `aceb/generator/__init__.py`
+- `aceb/generator/builder.py`
 - `aceb/rules/base.py`
 - `aceb/rules/shift.py`
 - `aceb/rules/ruleset.py`
@@ -40,29 +53,36 @@ Task 3 — RuleSet (Pre/Post Rule Wrapper)
 - `tests/test_shift_rule.py`
 - `tests/test_episode_spec.py`
 - `tests/test_rule_set.py`
+- `tests/test_episode_builder.py`
 - `tests/conftest.py`
 
 Implemented behavior:
 - `ShiftRule` supports cyclic positive and negative shifts, wrap-around, and clear invalid-symbol errors
 - `EpisodeSpec` stores all deterministic episode parameters with full type hints and lightweight validation
 - `RuleSet` deterministically schedules between pre/post `ShiftRule` instances using the required boundary `step_id >= switch_step`
-- `RuleSet` rejects negative `step_id` with a clear error and rejects identical pre/post shifts
-- Entire current test suite passes under both `pytest` and `unittest`
+- `BenchmarkConfig` provides the minimal explicit generation contract: `alphabet_size`, `input_length`, `history_window`, `seed`, and optional ratio bounds
+- `build_episode_spec` deterministically generates:
+  - a unique alphabet of size at least 3
+  - a non-constant input stream containing only alphabet symbols
+  - non-zero distinct shifts that are also distinct modulo alphabet length
+  - a switch step inside the middle ratio band and away from the first/last step
+  - a valid `EpisodeSpec` carrying the derived episode seed
+- Full current test suite passes under both `pytest` and `unittest`
 
 ## Prioritized backlog
 ### P0
 - Add the remaining environment dataclasses (`HistoryItem`, `Feedback`, `Observation`, `Action`, `StepResult`)
-- Implement reproducible episode generation for the shift-family MVP
+- Implement the environment loop that consumes `EpisodeSpec` and `RuleSet`
 
 ### P1
-- Build generator modules: alphabet sampling, shift-pair sampling, input stream generation, and episode builder
-- Add tests for generator validity, switch bounds, and reproducibility
+- Expand generator coverage with negative-path tests for invalid ratio bands and impossible configs
+- Add dedicated sampler/stream modules if the generator layer is split further
 
 ### P2
-- Implement environment stepping, baseline agents, metrics, and CLI pipeline
-- Expand coverage for constructor edge cases and additional invalid data cases where useful
+- Implement baseline agents, trajectory runner, benchmark metrics, and CLI pipeline
+- Broaden property-style coverage across multiple seeds and episode ids
 
 ## Next tasks
 1. Add the rest of the environment/data dataclasses used by the episode loop
-2. Implement the shift-family episode generator with deterministic seeds
-3. Add unit tests for generator constraints and RuleSet/EpisodeSpec integration points
+2. Implement `RCSEnvironment.reset()` and `step()` around `EpisodeSpec` and `RuleSet`
+3. Add environment tests for pre-switch, post-switch, and perseveration-ready behavior
