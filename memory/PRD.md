@@ -71,6 +71,13 @@ Task 9 — Baseline Comparison Helper (Random / Static / Adaptive)
 - Add a small summary helper with simple per-agent averages
 - Keep scope limited to fair same-episode comparisons only
 
+Task 10 — Deterministic Validation Set & Sanity-Check Flow
+- Implement a fixed validation episode set
+- Add a validation runner wrapper over the comparison layer
+- Add summary output and boolean-only behavioral separation diagnostics
+- Keep this as a lightweight developer-facing validation flow only
+- Reuse existing comparison and evaluator logic without adding export or UI
+
 ## Architecture decisions
 - Created a minimal benchmark package structure under `aceb/` aligned with the implementation plan
 - Kept primitive transformation logic in `aceb.rules.shift.ShiftRule`
@@ -90,6 +97,7 @@ Task 9 — Baseline Comparison Helper (Random / Static / Adaptive)
 - For the adaptive agent, revision search continues from the next candidate shift in order after a failed committed hypothesis, matching the selected user preference
 - Implemented the first evaluator layer as small pure functions in `aceb.eval`, keeping metric logic easy to inspect and test
 - Implemented the comparison layer as a thin orchestration wrapper around existing episode generation, runner, and evaluator logic, avoiding duplicated metric computation
+- Implemented the validation layer as a lightweight wrapper around the comparison layer with a fixed episode set and boolean sanity diagnostics
 
 ## What's been implemented
 - `aceb/config.py`
@@ -113,6 +121,9 @@ Task 9 — Baseline Comparison Helper (Random / Static / Adaptive)
 - `aceb/eval/types.py`
 - `aceb/eval/core_metrics.py`
 - `aceb/eval/comparison.py`
+- `aceb/validation/__init__.py`
+- `aceb/validation/validation_set.py`
+- `aceb/validation/run_validation.py`
 - `aceb/rules/__init__.py`
 - `aceb/env/__init__.py`
 - `tests/test_shift_rule.py`
@@ -126,6 +137,7 @@ Task 9 — Baseline Comparison Helper (Random / Static / Adaptive)
 - `tests/test_adaptive_shift_agent.py`
 - `tests/test_core_metrics.py`
 - `tests/test_comparison_helper.py`
+- `tests/test_validation_flow.py`
 - `tests/conftest.py`
 
 Implemented behavior:
@@ -178,22 +190,29 @@ Implemented behavior:
   - CDL averaging over non-None values only, with `None` preserved when no valid CDL exists
   - deterministic RandomAgent seeding per episode via derived seed
   - reuse of `run_episode()` and `evaluate_core_metrics()` rather than duplicating logic
-- Full current test suite passes under both `pytest` and `unittest`; latest verified pytest total is 72 passing tests
+- Validation layer provides:
+  - fixed deterministic `VALIDATION_EPISODE_IDS`
+  - `get_validation_episode_ids()` defensive copy helper
+  - `run_validation(config)` over the fixed validation set
+  - `run_validation_with_summary(config)` returning comparison + summary
+  - `validate_behavioral_separation(summary)` returning boolean sanity indicators only
+  - handling of static `CDL=None` as a valid “no recovery” baseline case in the diagnostic helper
+- Full current test suite passes under both `pytest` and `unittest`; latest verified pytest total is 80 passing tests
 
 ## Prioritized backlog
 ### P0
-- Add stronger benchmark validation across more controlled episode sets to show clearer quantitative separation between random, static, and adaptive baselines
-- Prepare the next evaluation layer only after the current comparison outputs are reviewed and accepted
+- Review validation outputs over the fixed deterministic set and decide whether the benchmark signal is strong enough to scale further
+- Add broader deterministic comparison sets only if stronger baseline separation evidence is needed
 
 ### P1
-- Add small multi-episode helper utilities for repeated comparison experiments without introducing CLI or exports yet
-- Expand negative tests for comparison edge cases and metric validation branches
+- Expand evaluator coverage with additional metrics (AHL/PCS/EFF) once the current signal quality is accepted
+- Add small export/report helpers only after the validation flow is considered stable
 
 ### P2
-- Implement additional metrics (AHL/PCS/EFF), batch evaluation, aggregate reporting, and CLI flow
-- Broaden benchmark validation across larger seed/episode distributions
+- Implement larger batch evaluation, aggregate reporting, and CLI flow
+- Broaden validation across larger seed/episode distributions for stronger benchmark evidence
 
 ## Next tasks
-1. Add a small deterministic multi-episode validation set and inspect whether baseline separation stays consistent across more generated episodes
-2. Extend the evaluator later with AHL, PCS, and EFF after the current comparison layer is reviewed
-3. Add optional export/report helpers only after the core evaluation and comparison contracts are stable
+1. Inspect the validation summary as the first benchmark sanity proof and decide whether stronger separation stress-tests are needed
+2. Extend the evaluator later with AHL, PCS, and EFF after the current validation flow is reviewed
+3. Add broader deterministic benchmark checks only if the current five-episode validation set is not enough for confidence
