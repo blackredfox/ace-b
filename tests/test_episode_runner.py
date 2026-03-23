@@ -1,6 +1,7 @@
 import unittest
 
 from aceb.agents.base import BaseAgent
+from aceb.agents.adaptive_shift_agent import AdaptiveShiftAgent
 from aceb.agents.random_agent import RandomAgent
 from aceb.agents.static_shift_agent import StaticShiftAgent
 from aceb.agents.types import AgentFeedback
@@ -80,6 +81,15 @@ class EpisodeRunnerTests(unittest.TestCase):
 
         self.assertEqual(random_result.total_steps, len(self.episode.input_stream))
         self.assertEqual(static_result.total_steps, len(self.episode.input_stream))
+
+    def test_runner_works_with_adaptive_agent(self) -> None:
+        result = run_episode(
+            RCSEnvironment(self.episode),
+            AdaptiveShiftAgent(alphabet=self.episode.alphabet, required_consistent_inferences=2, failure_streak_for_revision=2),
+        )
+
+        self.assertEqual(result.total_steps, len(self.episode.input_stream))
+        self.assertTrue(all(record.action in self.episode.alphabet for record in result.trajectory))
 
     def test_repeated_runs_with_same_seeds_are_deterministic(self) -> None:
         first = run_episode(
