@@ -53,6 +53,17 @@ Task 7 — Adaptive Baseline Agent
 - Add focused unit tests plus end-to-end runner smoke coverage
 - Keep scope limited to agent behavior only, without evaluator metrics or aggregation
 
+Task 8 — Core Evaluator Metrics (PCM, CDL, PR)
+- Implement pure per-episode evaluator functions:
+  - `compute_pcm(...)`
+  - `compute_cdl(...)`
+  - `compute_pr(...)`
+  - `evaluate_core_metrics(...)`
+- Add compact metric result dataclass
+- Keep validation explicit and deterministic
+- Use window-based CDL and pre-rule-based PR
+- Keep scope limited to trajectory-based metrics only
+
 ## Architecture decisions
 - Created a minimal benchmark package structure under `aceb/` aligned with the implementation plan
 - Kept primitive transformation logic in `aceb.rules.shift.ShiftRule`
@@ -70,6 +81,7 @@ Task 7 — Adaptive Baseline Agent
   - `StaticShiftAgent` for single-hypothesis non-adaptive behavior
   - `AdaptiveShiftAgent` for commit → fail-detect → revise → recover behavior
 - For the adaptive agent, revision search continues from the next candidate shift in order after a failed committed hypothesis, matching the selected user preference
+- Implemented the first evaluator layer as small pure functions in `aceb.eval`, keeping metric logic easy to inspect and test
 
 ## What's been implemented
 - `aceb/config.py`
@@ -89,6 +101,9 @@ Task 7 — Adaptive Baseline Agent
 - `aceb/agents/types.py`
 - `aceb/runner/__init__.py`
 - `aceb/runner/episode_runner.py`
+- `aceb/eval/__init__.py`
+- `aceb/eval/types.py`
+- `aceb/eval/core_metrics.py`
 - `aceb/rules/__init__.py`
 - `aceb/env/__init__.py`
 - `tests/test_shift_rule.py`
@@ -100,6 +115,7 @@ Task 7 — Adaptive Baseline Agent
 - `tests/test_episode_runner.py`
 - `tests/test_static_shift_commit_rule_regression.py`
 - `tests/test_adaptive_shift_agent.py`
+- `tests/test_core_metrics.py`
 - `tests/conftest.py`
 
 Implemented behavior:
@@ -128,7 +144,7 @@ Implemented behavior:
   - agent-visible observation history does not include `expected_output`
 - `RandomAgent` uses deterministic local randomness and resets cleanly per episode
 - `StaticShiftAgent` tests candidate shifts, commits after 2 consistent confirmations, and never revises after commit
-- `AdaptiveShiftAgent` now:
+- `AdaptiveShiftAgent`:
   - searches non-zero shift candidates deterministically
   - commits after configurable consistent confirmations
   - uses the committed shift while feedback remains correct
@@ -138,22 +154,28 @@ Implemented behavior:
   - re-commits to a new hypothesis after renewed evidence
   - remains fully non-oracle and feedback-driven
 - `run_episode()` supports all current agents end-to-end and returns full trajectory plus minimal summary statistics
-- Full current test suite passes under both `pytest` and `unittest`; latest verified pytest total is 52 passing tests
+- Core evaluator layer now provides:
+  - `compute_pcm()` for exact pre-switch mastery
+  - `compute_cdl()` using strict post-switch sliding windows
+  - `compute_pr()` by comparing post-switch wrong actions to the pre-change rule only
+  - `evaluate_core_metrics()` returning compact `CoreMetricResult`
+  - explicit validation for empty trajectories, length mismatch, incoherent step ordering, and invalid window parameters
+- Full current test suite passes under both `pytest` and `unittest`; latest verified pytest total is 64 passing tests
 
 ## Prioritized backlog
 ### P0
-- Implement evaluator-side metric functions for adaptation behavior (PCM, CDL, PR, later AHL/PCS/EFF)
-- Add comparative end-to-end tests showing clear separation across random, static, and adaptive agents over generated episode sets
+- Add comparative evaluator tests over runs from random, static, and adaptive agents to demonstrate measurable separation
+- Implement the next metric layer only after core benchmark behavior is validated across multiple episodes
 
 ### P1
-- Add richer runner helpers for multiple episodes without introducing full CLI or aggregation yet
-- Strengthen constructor validation and more long-horizon adaptive behavior tests where useful
+- Add small multi-episode evaluation helpers without introducing full CLI or aggregation yet
+- Expand negative tests for metric validation branches and more long-horizon adaptation patterns
 
 ### P2
-- Implement batch evaluation, aggregate summaries, and CLI flow
-- Expand benchmark validation across broader seeds and episode distributions
+- Implement batch evaluation, aggregate summaries, additional metrics (AHL/PCS/EFF), and CLI flow
+- Broaden benchmark validation across more seeds and episode distributions
 
 ## Next tasks
-1. Implement evaluator metrics on top of recorded trajectories and switch-step metadata
-2. Add comparative tests that measure separation between Random, Static, and Adaptive behaviors
-3. Build a small multi-episode runner once the metric layer is in place
+1. Add comparative tests that quantify separation between Random, Static, and Adaptive behaviors using PCM, CDL, and PR
+2. Build a small multi-episode evaluation helper once per-episode metric behavior is fully validated
+3. Extend the evaluator later with AHL, PCS, and EFF after the current metric layer is reviewed
