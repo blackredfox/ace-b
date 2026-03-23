@@ -91,6 +91,13 @@ Task 12 — Evidence Summary Package for Reviewers
 - Add a deterministic markdown renderer with compact sections for review use
 - Keep this as a packaging layer only, without new benchmark logic
 
+Task 13 — Kaggle Submission Narrative + Minimal Scientific Reinforcement
+- Add a concise reviewer-facing Kaggle submission narrative
+- Add compact evidence notes mapping claims to evidence
+- Add 1–2 minimal controlled scientific cases that strengthen the “accuracy is insufficient” argument
+- Reuse existing evaluator functions only and keep the cases explicit and deterministic
+- Keep scope limited to framing and reinforcement, not new benchmark functionality
+
 ## Architecture decisions
 - Created a minimal benchmark package structure under `aceb/` aligned with the implementation plan
 - Kept primitive transformation logic in `aceb.rules.shift.ShiftRule`
@@ -113,6 +120,7 @@ Task 12 — Evidence Summary Package for Reviewers
 - Implemented the validation layer as a lightweight wrapper around the comparison layer with a fixed episode set and boolean sanity diagnostics
 - Implemented the metric validation suite as a compact evidence package built on controlled hand-constructed trajectories that reuse the evaluator rather than duplicating metric logic
 - Implemented the reviewer-facing evidence summary as a packaging layer over the validation outputs, with structured claims and deterministic markdown rendering
+- Implemented the narrative layer as lightweight documentation plus two explicit controlled scientific cases that reinforce the core measurement claim without adding new infrastructure
 
 ## What's been implemented
 - `aceb/config.py`
@@ -141,6 +149,8 @@ Task 12 — Evidence Summary Package for Reviewers
 - `aceb/validation/__init__.py`
 - `aceb/validation/validation_set.py`
 - `aceb/validation/run_validation.py`
+- `aceb/narrative/kaggle_submission.md`
+- `aceb/narrative/evidence_notes.md`
 - `aceb/rules/__init__.py`
 - `aceb/env/__init__.py`
 - `tests/test_shift_rule.py`
@@ -157,6 +167,7 @@ Task 12 — Evidence Summary Package for Reviewers
 - `tests/test_validation_flow.py`
 - `tests/test_metric_validation.py`
 - `tests/test_evidence_summary.py`
+- `tests/test_additional_validation_cases.py`
 - `tests/conftest.py`
 
 Implemented behavior:
@@ -237,22 +248,29 @@ Implemented behavior:
     - Baseline Separation
     - Claims
   - deterministic, packaging-only output suitable for notebook/README/reviewer inspection
-- Full current test suite passes under both `pytest` and `unittest`; latest verified pytest total is 98 passing tests
+- Narrative layer provides:
+  - `aceb/narrative/kaggle_submission.md` with concise sections for problem, contribution, key insight, evidence, practical meaning, and conclusion
+  - `aceb/narrative/evidence_notes.md` mapping benchmark claims directly to existing evidence sources
+  - two explicit additional scientific reinforcement cases in `tests/test_additional_validation_cases.py` showing:
+    - same accuracy can still hide different CDL and PR
+    - same post-switch error count can still produce sharply different PR
+  - deterministic tests that reuse `evaluate_core_metrics()` only
+- Full current test suite passes under both `pytest` and `unittest`; latest verified pytest total is 101 passing tests
 
 ## Prioritized backlog
 ### P0
-- Review the evidence summary as the first reviewer-facing package and decide whether it is strong enough for external presentation
-- Add a few more controlled evidence cases only if reviewer feedback suggests the current claims need more support
+- Review the Kaggle narrative and evidence notes as the first submission-facing package and decide whether wording needs tightening for the target audience
+- Use the new controlled reinforcement cases only as long as they add clarity without bloating the benchmark story
 
 ### P1
-- Expand evaluator evidence later with additional metrics (AHL/PCS/EFF) only after the current core-metric claim and evidence summary are accepted
-- Add lightweight export/report helpers only after the packaging layer is considered stable
+- Expand evaluator evidence later with additional metrics (AHL/PCS/EFF) only after the current narrative and evidence package are accepted
+- Add lightweight export/report helpers only after the reviewer-facing package is considered stable
 
 ### P2
 - Implement broader batch evaluation, richer benchmark analysis, and CLI flow
 - Broaden validation across larger seed/episode distributions for stronger benchmark evidence
 
 ## Next tasks
-1. Review the evidence summary and markdown output as the first reviewer-facing benchmark package
-2. Decide whether to add a few more controlled scientific cases before external review or Kaggle-style presentation
-3. Extend later with additional metrics only after the current evidence layer is accepted
+1. Review the Kaggle submission narrative and evidence notes for tone and clarity before external submission
+2. Decide whether the current two reinforcement cases are sufficient or whether one more tightly targeted example is needed later
+3. Extend later with additional metrics only after the current narrative and evidence layer are accepted
