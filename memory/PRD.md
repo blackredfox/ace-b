@@ -64,6 +64,13 @@ Task 8 — Core Evaluator Metrics (PCM, CDL, PR)
 - Use window-based CDL and pre-rule-based PR
 - Keep scope limited to trajectory-based metrics only
 
+Task 9 — Baseline Comparison Helper (Random / Static / Adaptive)
+- Implement a small deterministic comparison layer across baseline agents
+- Reuse the existing runner and evaluator functions
+- Produce side-by-side per-episode comparison outputs for accuracy, PCM, CDL, and PR
+- Add a small summary helper with simple per-agent averages
+- Keep scope limited to fair same-episode comparisons only
+
 ## Architecture decisions
 - Created a minimal benchmark package structure under `aceb/` aligned with the implementation plan
 - Kept primitive transformation logic in `aceb.rules.shift.ShiftRule`
@@ -82,6 +89,7 @@ Task 8 — Core Evaluator Metrics (PCM, CDL, PR)
   - `AdaptiveShiftAgent` for commit → fail-detect → revise → recover behavior
 - For the adaptive agent, revision search continues from the next candidate shift in order after a failed committed hypothesis, matching the selected user preference
 - Implemented the first evaluator layer as small pure functions in `aceb.eval`, keeping metric logic easy to inspect and test
+- Implemented the comparison layer as a thin orchestration wrapper around existing episode generation, runner, and evaluator logic, avoiding duplicated metric computation
 
 ## What's been implemented
 - `aceb/config.py`
@@ -104,6 +112,7 @@ Task 8 — Core Evaluator Metrics (PCM, CDL, PR)
 - `aceb/eval/__init__.py`
 - `aceb/eval/types.py`
 - `aceb/eval/core_metrics.py`
+- `aceb/eval/comparison.py`
 - `aceb/rules/__init__.py`
 - `aceb/env/__init__.py`
 - `tests/test_shift_rule.py`
@@ -116,6 +125,7 @@ Task 8 — Core Evaluator Metrics (PCM, CDL, PR)
 - `tests/test_static_shift_commit_rule_regression.py`
 - `tests/test_adaptive_shift_agent.py`
 - `tests/test_core_metrics.py`
+- `tests/test_comparison_helper.py`
 - `tests/conftest.py`
 
 Implemented behavior:
@@ -154,28 +164,36 @@ Implemented behavior:
   - re-commits to a new hypothesis after renewed evidence
   - remains fully non-oracle and feedback-driven
 - `run_episode()` supports all current agents end-to-end and returns full trajectory plus minimal summary statistics
-- Core evaluator layer now provides:
+- Core evaluator layer provides:
   - `compute_pcm()` for exact pre-switch mastery
   - `compute_cdl()` using strict post-switch sliding windows
   - `compute_pr()` by comparing post-switch wrong actions to the pre-change rule only
   - `evaluate_core_metrics()` returning compact `CoreMetricResult`
   - explicit validation for empty trajectories, length mismatch, incoherent step ordering, and invalid window parameters
-- Full current test suite passes under both `pytest` and `unittest`; latest verified pytest total is 64 passing tests
+- Comparison layer provides:
+  - `compare_baseline_agents_on_episodes()` for fair same-episode baseline runs
+  - `AgentEpisodeComparison` per agent per episode
+  - `ComparisonResult` bundle across requested episodes
+  - `summarize_by_agent()` with simple per-agent averages
+  - CDL averaging over non-None values only, with `None` preserved when no valid CDL exists
+  - deterministic RandomAgent seeding per episode via derived seed
+  - reuse of `run_episode()` and `evaluate_core_metrics()` rather than duplicating logic
+- Full current test suite passes under both `pytest` and `unittest`; latest verified pytest total is 72 passing tests
 
 ## Prioritized backlog
 ### P0
-- Add comparative evaluator tests over runs from random, static, and adaptive agents to demonstrate measurable separation
-- Implement the next metric layer only after core benchmark behavior is validated across multiple episodes
+- Add stronger benchmark validation across more controlled episode sets to show clearer quantitative separation between random, static, and adaptive baselines
+- Prepare the next evaluation layer only after the current comparison outputs are reviewed and accepted
 
 ### P1
-- Add small multi-episode evaluation helpers without introducing full CLI or aggregation yet
-- Expand negative tests for metric validation branches and more long-horizon adaptation patterns
+- Add small multi-episode helper utilities for repeated comparison experiments without introducing CLI or exports yet
+- Expand negative tests for comparison edge cases and metric validation branches
 
 ### P2
-- Implement batch evaluation, aggregate summaries, additional metrics (AHL/PCS/EFF), and CLI flow
-- Broaden benchmark validation across more seeds and episode distributions
+- Implement additional metrics (AHL/PCS/EFF), batch evaluation, aggregate reporting, and CLI flow
+- Broaden benchmark validation across larger seed/episode distributions
 
 ## Next tasks
-1. Add comparative tests that quantify separation between Random, Static, and Adaptive behaviors using PCM, CDL, and PR
-2. Build a small multi-episode evaluation helper once per-episode metric behavior is fully validated
-3. Extend the evaluator later with AHL, PCS, and EFF after the current metric layer is reviewed
+1. Add a small deterministic multi-episode validation set and inspect whether baseline separation stays consistent across more generated episodes
+2. Extend the evaluator later with AHL, PCS, and EFF after the current comparison layer is reviewed
+3. Add optional export/report helpers only after the core evaluation and comparison contracts are stable
