@@ -30,6 +30,14 @@ class RCSEnvironment:
         self._has_reset = True
         return self._build_observation(self._current_step)
 
+    def get_observation(self) -> Observation:
+        if not self._has_reset:
+            raise RuntimeError("reset() must be called before get_observation()")
+        if self._done:
+            raise RuntimeError("no current observation is available after the episode is done")
+
+        return self._build_observation(self._current_step)
+
     def step(self, action: str) -> StepResult:
         if not self._has_reset:
             raise RuntimeError("reset() must be called before step()")
@@ -97,3 +105,4 @@ class RCSEnvironment:
             history=history,
             last_feedback=last_feedback,
         )
+
