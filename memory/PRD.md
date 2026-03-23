@@ -30,6 +30,14 @@ Task 4 — Episode Builder
 - Return a valid `EpisodeSpec` without bypassing validation
 - Add tests for validity, switch-step bounds, shift constraints, input stream constraints, and determinism
 
+Task 5 — RCS Environment Core Loop
+- Implement `RCSEnvironment` that consumes `EpisodeSpec` and `RuleSet`
+- Add environment I/O dataclasses: `Observation`, `StepResult`, `TrajectoryRecord`
+- Enforce explicit lifecycle: `reset()` is required before `step()`
+- Execute steps deterministically, produce correctness/reward, maintain bounded history, and record trajectory
+- Raise clear errors for stepping before reset or after done
+- Keep scope limited to environment execution only
+
 ## Architecture decisions
 - Created a minimal benchmark package structure under `aceb/` aligned with the implementation plan
 - Kept primitive transformation logic in `aceb.rules.shift.ShiftRule`
@@ -38,7 +46,8 @@ Task 4 — Episode Builder
 - Added a minimal `aceb.config.BenchmarkConfig` contract for generation only
 - Implemented episode generation in `aceb.generator.builder` using only the Python standard library
 - Used SHA-256 over `base_seed:episode_id` to derive deterministic episode-level seeds
-- Kept validation lightweight and focused on correctness of generation constraints rather than broad business rules
+- Implemented environment execution in `aceb.env.environment.RCSEnvironment` with explicit lifecycle state and bounded observation history
+- Kept validation lightweight and focused on correctness of generation and execution contracts rather than broader business rules
 
 ## What's been implemented
 - `aceb/config.py`
@@ -48,12 +57,15 @@ Task 4 — Episode Builder
 - `aceb/rules/shift.py`
 - `aceb/rules/ruleset.py`
 - `aceb/env/episode.py`
+- `aceb/env/types.py`
+- `aceb/env/environment.py`
 - `aceb/rules/__init__.py`
 - `aceb/env/__init__.py`
 - `tests/test_shift_rule.py`
 - `tests/test_episode_spec.py`
 - `tests/test_rule_set.py`
 - `tests/test_episode_builder.py`
+- `tests/test_environment.py`
 - `tests/conftest.py`
 
 Implemented behavior:
@@ -67,22 +79,30 @@ Implemented behavior:
   - non-zero distinct shifts that are also distinct modulo alphabet length
   - a switch step inside the middle ratio band and away from the first/last step
   - a valid `EpisodeSpec` carrying the derived episode seed
-- Full current test suite passes under both `pytest` and `unittest`
+- `RCSEnvironment` now provides:
+  - explicit `reset() -> Observation`
+  - explicit `step(action: str) -> StepResult`
+  - `get_trajectory()` returning a safe copy
+  - reward mapping of `1.0` or `0.0`
+  - bounded observation history based on `history_window`
+  - clear runtime errors before reset and after completion
+  - one `TrajectoryRecord` per executed step
+- Full current test suite passes under both `pytest` and `unittest`; latest verified pytest total is 31 passing tests
 
 ## Prioritized backlog
 ### P0
-- Add the remaining environment dataclasses (`HistoryItem`, `Feedback`, `Observation`, `Action`, `StepResult`)
-- Implement the environment loop that consumes `EpisodeSpec` and `RuleSet`
+- Add the remaining richer environment dataclasses if needed later (e.g. separate feedback/history item types only if truly necessary)
+- Implement agent interfaces and a single-episode runner around `RCSEnvironment`
 
 ### P1
-- Expand generator coverage with negative-path tests for invalid ratio bands and impossible configs
-- Add dedicated sampler/stream modules if the generator layer is split further
+- Add perseveration-related helper logic and evaluation-ready annotations outside the environment core loop
+- Expand environment hardening tests around deeper copy semantics and additional invalid state edge cases
 
 ### P2
 - Implement baseline agents, trajectory runner, benchmark metrics, and CLI pipeline
 - Broaden property-style coverage across multiple seeds and episode ids
 
 ## Next tasks
-1. Add the rest of the environment/data dataclasses used by the episode loop
-2. Implement `RCSEnvironment.reset()` and `step()` around `EpisodeSpec` and `RuleSet`
-3. Add environment tests for pre-switch, post-switch, and perseveration-ready behavior
+1. Add baseline agent interfaces and a simple runner that can interact with `RCSEnvironment`
+2. Implement the evaluator-side trajectory and metric layer outside the environment
+3. Add end-to-end tests that generate an episode, execute it in the environment, and validate recorded behavior
