@@ -85,6 +85,12 @@ Task 11 — Metric Validation Suite (for Kaggle / Measuring AGI)
 - Demonstrate construct validity, behavioral discrimination, non-redundancy, and value beyond plain accuracy
 - Keep scope limited to validation of existing metrics only
 
+Task 12 — Evidence Summary Package for Reviewers
+- Build a compact reviewer-facing evidence package over the existing validation outputs
+- Add structured claims tied to metric-validation and baseline-separation evidence
+- Add a deterministic markdown renderer with compact sections for review use
+- Keep this as a packaging layer only, without new benchmark logic
+
 ## Architecture decisions
 - Created a minimal benchmark package structure under `aceb/` aligned with the implementation plan
 - Kept primitive transformation logic in `aceb.rules.shift.ShiftRule`
@@ -106,6 +112,7 @@ Task 11 — Metric Validation Suite (for Kaggle / Measuring AGI)
 - Implemented the comparison layer as a thin orchestration wrapper around existing episode generation, runner, and evaluator logic, avoiding duplicated metric computation
 - Implemented the validation layer as a lightweight wrapper around the comparison layer with a fixed episode set and boolean sanity diagnostics
 - Implemented the metric validation suite as a compact evidence package built on controlled hand-constructed trajectories that reuse the evaluator rather than duplicating metric logic
+- Implemented the reviewer-facing evidence summary as a packaging layer over the validation outputs, with structured claims and deterministic markdown rendering
 
 ## What's been implemented
 - `aceb/config.py`
@@ -130,6 +137,7 @@ Task 11 — Metric Validation Suite (for Kaggle / Measuring AGI)
 - `aceb/eval/core_metrics.py`
 - `aceb/eval/comparison.py`
 - `aceb/eval/validation.py`
+- `aceb/eval/evidence_summary.py`
 - `aceb/validation/__init__.py`
 - `aceb/validation/validation_set.py`
 - `aceb/validation/run_validation.py`
@@ -148,6 +156,7 @@ Task 11 — Metric Validation Suite (for Kaggle / Measuring AGI)
 - `tests/test_comparison_helper.py`
 - `tests/test_validation_flow.py`
 - `tests/test_metric_validation.py`
+- `tests/test_evidence_summary.py`
 - `tests/conftest.py`
 
 Implemented behavior:
@@ -219,22 +228,31 @@ Implemented behavior:
     - one lucky correct action does not falsely trigger CDL
   - structured details per check with case metrics, expected relations, and observed relations
   - reuse of existing evaluator logic via `evaluate_core_metrics()` rather than reimplementation
-- Full current test suite passes under both `pytest` and `unittest`; latest verified pytest total is 90 passing tests
+- Evidence summary layer provides:
+  - `EvidenceClaim` and `EvidenceSummary`
+  - `build_evidence_summary(config)` combining metric validation, baseline separation, and reviewer-facing claims
+  - short factual claim explanations tied to explicit evidence keys
+  - `render_evidence_summary_markdown(summary)` with compact sections for:
+    - Metric Validity
+    - Baseline Separation
+    - Claims
+  - deterministic, packaging-only output suitable for notebook/README/reviewer inspection
+- Full current test suite passes under both `pytest` and `unittest`; latest verified pytest total is 98 passing tests
 
 ## Prioritized backlog
 ### P0
-- Review the metric validation suite as the first evidence package for the benchmark claim that adaptive intelligence is not captured by plain accuracy alone
-- Decide whether the current evidence is strong enough for presentation or whether additional controlled cases are needed
+- Review the evidence summary as the first reviewer-facing package and decide whether it is strong enough for external presentation
+- Add a few more controlled evidence cases only if reviewer feedback suggests the current claims need more support
 
 ### P1
-- Expand evaluator evidence later with additional metrics (AHL/PCS/EFF) only after the current core-metric claim is accepted
-- Add lightweight reporting/export helpers only after the validation story is considered stable
+- Expand evaluator evidence later with additional metrics (AHL/PCS/EFF) only after the current core-metric claim and evidence summary are accepted
+- Add lightweight export/report helpers only after the packaging layer is considered stable
 
 ### P2
 - Implement broader batch evaluation, richer benchmark analysis, and CLI flow
 - Broaden validation across larger seed/episode distributions for stronger benchmark evidence
 
 ## Next tasks
-1. Review the metric validation suite output as the first inspectable evidence package for PCM, CDL, and PR
-2. Decide whether you want a few more controlled scientific cases before packaging the benchmark for external review
-3. Extend later with additional metrics only after the current core validity claim is locked in
+1. Review the evidence summary and markdown output as the first reviewer-facing benchmark package
+2. Decide whether to add a few more controlled scientific cases before external review or Kaggle-style presentation
+3. Extend later with additional metrics only after the current evidence layer is accepted
