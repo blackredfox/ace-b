@@ -13,12 +13,14 @@ class StaticShiftAgent(BaseAgent):
         self.required_consistent_inferences = required_consistent_inferences
         self._index_by_symbol = {symbol: index for index, symbol in enumerate(self.alphabet)}
         self._committed_shift: int | None = None
-        self._shift_counts: dict[int, int] = {}
+        self._last_inferred_shift: int | None = None
+        self._consecutive_inference_count = 0
         self._has_reset = False
 
     def reset(self) -> None:
         self._committed_shift = None
-        self._shift_counts = {}
+        self._last_inferred_shift = None
+        self._consecutive_inference_count = 0
         self._has_reset = True
 
     def act(self, observation: Observation) -> str:
@@ -35,10 +37,13 @@ class StaticShiftAgent(BaseAgent):
             return
 
         inferred_shift = self._infer_shift(observation.input_symbol, result.expected_output)
-        new_count = self._shift_counts.get(inferred_shift, 0) + 1
-        self._shift_counts[inferred_shift] = new_count
+        if inferred_shift == self._last_inferred_shift:
+            self._consecutive_inference_count += 1
+        else:
+            self._last_inferred_shift = inferred_shift
+            self._consecutive_inference_count = 1
 
-        if new_count >= self.required_consistent_inferences:
+        if self._consecutive_inference_count >= self.required_consistent_inferences:
             self._committed_shift = inferred_shift
 
     def _apply_shift(self, input_symbol: str, shift: int) -> str:

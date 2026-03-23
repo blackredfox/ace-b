@@ -38,6 +38,14 @@ Task 5 — RCS Environment Core Loop
 - Raise clear errors for stepping before reset or after done
 - Keep scope limited to environment execution only
 
+Task 6 — Baseline Agents + Single-Episode Runner
+- Implement a minimal agent interface, baseline agents, and the first runnable single-episode execution path
+- Add deterministic `RandomAgent` using local RNG only
+- Add `StaticShiftAgent` that commits only after 2 consecutive consistent shift inferences and never revises after commit
+- Implement `run_episode(environment, agent) -> EpisodeRunResult`
+- Return full trajectory plus minimal execution summary (`total_steps`, `total_correct`, `accuracy`)
+- Keep scope limited to execution only, without evaluator metrics, batch running, or CLI
+
 ## Architecture decisions
 - Created a minimal benchmark package structure under `aceb/` aligned with the implementation plan
 - Kept primitive transformation logic in `aceb.rules.shift.ShiftRule`
@@ -47,6 +55,9 @@ Task 5 — RCS Environment Core Loop
 - Implemented episode generation in `aceb.generator.builder` using only the Python standard library
 - Used SHA-256 over `base_seed:episode_id` to derive deterministic episode-level seeds
 - Implemented environment execution in `aceb.env.environment.RCSEnvironment` with explicit lifecycle state and bounded observation history
+- Added a minimal `get_observation()` helper so the runner can fetch the next observation without changing the `step()` contract
+- Implemented baseline agents under `aceb.agents` with deterministic local state only
+- Fixed `StaticShiftAgent` commit semantics to require consecutive consistent inferences, matching the selected Task 6 behavior
 - Kept validation lightweight and focused on correctness of generation and execution contracts rather than broader business rules
 
 ## What's been implemented
@@ -59,6 +70,12 @@ Task 5 — RCS Environment Core Loop
 - `aceb/env/episode.py`
 - `aceb/env/types.py`
 - `aceb/env/environment.py`
+- `aceb/agents/__init__.py`
+- `aceb/agents/base.py`
+- `aceb/agents/random_agent.py`
+- `aceb/agents/static_shift_agent.py`
+- `aceb/runner/__init__.py`
+- `aceb/runner/episode_runner.py`
 - `aceb/rules/__init__.py`
 - `aceb/env/__init__.py`
 - `tests/test_shift_rule.py`
@@ -66,6 +83,9 @@ Task 5 — RCS Environment Core Loop
 - `tests/test_rule_set.py`
 - `tests/test_episode_builder.py`
 - `tests/test_environment.py`
+- `tests/test_agents.py`
+- `tests/test_episode_runner.py`
+- `tests/test_static_shift_commit_rule_regression.py`
 - `tests/conftest.py`
 
 Implemented behavior:
@@ -82,27 +102,39 @@ Implemented behavior:
 - `RCSEnvironment` now provides:
   - explicit `reset() -> Observation`
   - explicit `step(action: str) -> StepResult`
+  - `get_observation()` for the current active step
   - `get_trajectory()` returning a safe copy
   - reward mapping of `1.0` or `0.0`
   - bounded observation history based on `history_window`
   - clear runtime errors before reset and after completion
   - one `TrajectoryRecord` per executed step
-- Full current test suite passes under both `pytest` and `unittest`; latest verified pytest total is 31 passing tests
+- `RandomAgent` uses deterministic local randomness and resets cleanly per episode
+- `StaticShiftAgent`:
+  - infers shifts from step results
+  - commits only after 2 consecutive matching inferences
+  - keeps a fixed policy after commit
+  - does not revise after the hidden switch
+- `run_episode()` now enables the first end-to-end vertical slice:
+  - reset agent and environment
+  - step through the full episode
+  - collect full trajectory
+  - return minimal summary statistics
+- Full current test suite passes under both `pytest` and `unittest`; latest verified pytest total is 41 passing tests
 
 ## Prioritized backlog
 ### P0
-- Add the remaining richer environment dataclasses if needed later (e.g. separate feedback/history item types only if truly necessary)
-- Implement agent interfaces and a single-episode runner around `RCSEnvironment`
+- Add a third adaptive baseline agent that can revise its shift hypothesis after error evidence accumulates
+- Implement trajectory/evaluator structures needed for simple benchmark analysis on completed runs
 
 ### P1
-- Add perseveration-related helper logic and evaluation-ready annotations outside the environment core loop
-- Expand environment hardening tests around deeper copy semantics and additional invalid state edge cases
+- Add richer runner helpers for multiple episodes without introducing full batch orchestration yet
+- Expand agent tests around more edge cases and longer mixed-feedback sequences
 
 ### P2
-- Implement baseline agents, trajectory runner, benchmark metrics, and CLI pipeline
-- Broaden property-style coverage across multiple seeds and episode ids
+- Implement benchmark metrics, aggregate summaries, and CLI flow
+- Broaden cross-seed and cross-agent comparison coverage for benchmark validation
 
 ## Next tasks
-1. Add baseline agent interfaces and a simple runner that can interact with `RCSEnvironment`
-2. Implement the evaluator-side trajectory and metric layer outside the environment
-3. Add end-to-end tests that generate an episode, execute it in the environment, and validate recorded behavior
+1. Add an adaptive shift agent that can detect mismatch and revise policy after the hidden switch
+2. Implement evaluator-side trajectory summaries and benchmark metrics outside the execution loop
+3. Add end-to-end tests comparing Random, Static, and future Adaptive behavior on the same generated episodes
