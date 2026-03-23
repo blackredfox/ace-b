@@ -41,10 +41,10 @@ Task 5 — RCS Environment Core Loop
 Task 6 — Baseline Agents + Single-Episode Runner
 - Implement a minimal agent interface, baseline agents, and the first runnable single-episode execution path
 - Add deterministic `RandomAgent` using local RNG only
-- Add `StaticShiftAgent` that commits only after 2 consecutive consistent shift inferences and never revises after commit
+- Add `StaticShiftAgent` with simple non-adaptive policy learning
 - Implement `run_episode(environment, agent) -> EpisodeRunResult`
 - Return full trajectory plus minimal execution summary (`total_steps`, `total_correct`, `accuracy`)
-- Keep scope limited to execution only, without evaluator metrics, batch running, or CLI
+- Preserve benchmark validity by keeping agent-visible information limited to interaction signals only
 
 ## Architecture decisions
 - Created a minimal benchmark package structure under `aceb/` aligned with the implementation plan
@@ -56,8 +56,9 @@ Task 6 — Baseline Agents + Single-Episode Runner
 - Used SHA-256 over `base_seed:episode_id` to derive deterministic episode-level seeds
 - Implemented environment execution in `aceb.env.environment.RCSEnvironment` with explicit lifecycle state and bounded observation history
 - Added a minimal `get_observation()` helper so the runner can fetch the next observation without changing the `step()` contract
-- Implemented baseline agents under `aceb.agents` with deterministic local state only
-- Fixed `StaticShiftAgent` commit semantics to require consecutive consistent inferences, matching the selected Task 6 behavior
+- Introduced `AgentFeedback(correct, reward, done)` as the strict agent-facing feedback contract
+- Refactored agent-facing observation history to exclude `expected_output`, preventing oracle leakage through history
+- Refactored `StaticShiftAgent` to infer only from `(input_symbol, action, correct)` and to commit after 2 consistent confirmations without later revision
 - Kept validation lightweight and focused on correctness of generation and execution contracts rather than broader business rules
 
 ## What's been implemented
@@ -74,6 +75,7 @@ Task 6 — Baseline Agents + Single-Episode Runner
 - `aceb/agents/base.py`
 - `aceb/agents/random_agent.py`
 - `aceb/agents/static_shift_agent.py`
+- `aceb/agents/types.py`
 - `aceb/runner/__init__.py`
 - `aceb/runner/episode_runner.py`
 - `aceb/rules/__init__.py`
@@ -108,27 +110,32 @@ Implemented behavior:
   - bounded observation history based on `history_window`
   - clear runtime errors before reset and after completion
   - one `TrajectoryRecord` per executed step
+- Agent contract hardening:
+  - `BaseAgent.observe()` now receives only `AgentFeedback(correct, reward, done)`
+  - `run_episode()` no longer passes `StepResult` into agents
+  - agent-visible observation history no longer includes `expected_output`
 - `RandomAgent` uses deterministic local randomness and resets cleanly per episode
-- `StaticShiftAgent`:
-  - infers shifts from step results
-  - commits only after 2 consecutive matching inferences
+- `StaticShiftAgent` now:
+  - tests candidate shifts through its own actions
+  - updates only from whether its action was correct
+  - commits after 2 consistent confirmations
   - keeps a fixed policy after commit
   - does not revise after the hidden switch
-- `run_episode()` now enables the first end-to-end vertical slice:
+- `run_episode()` enables the end-to-end vertical slice:
   - reset agent and environment
   - step through the full episode
   - collect full trajectory
   - return minimal summary statistics
-- Full current test suite passes under both `pytest` and `unittest`; latest verified pytest total is 41 passing tests
+- Full current test suite passes under both `pytest` and `unittest`; latest verified pytest total is 43 passing tests
 
 ## Prioritized backlog
 ### P0
-- Add a third adaptive baseline agent that can revise its shift hypothesis after error evidence accumulates
-- Implement trajectory/evaluator structures needed for simple benchmark analysis on completed runs
+- Add an adaptive baseline agent that can revise its shift hypothesis after error evidence accumulates
+- Implement evaluator-side trajectory summaries and benchmark metrics on completed runs
 
 ### P1
 - Add richer runner helpers for multiple episodes without introducing full batch orchestration yet
-- Expand agent tests around more edge cases and longer mixed-feedback sequences
+- Expand agent tests around more feedback-only edge cases and terminal-step feedback behavior
 
 ### P2
 - Implement benchmark metrics, aggregate summaries, and CLI flow
