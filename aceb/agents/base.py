@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from aceb.env.types import Observation, StepResult
+from aceb.agents.types import AgentFeedback
+from aceb.env.types import Observation
 
 
 class BaseAgent(ABC):
@@ -15,5 +16,5 @@ class BaseAgent(ABC):
         """Choose an action for the current observation."""
 
     @abstractmethod
-    def observe(self, observation: Observation, action: str, result: StepResult) -> None:
+    def observe(self, observation: Observation, action: str, feedback: AgentFeedback) -> None:
         """Update internal state after a step result."""

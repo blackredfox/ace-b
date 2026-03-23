@@ -1,7 +1,8 @@
 import unittest
 
 from aceb.agents.static_shift_agent import StaticShiftAgent
-from aceb.env.types import Observation, StepResult
+from aceb.agents.types import AgentFeedback
+from aceb.env.types import Observation
 
 
 class StaticShiftCommitRuleRegressionTests(unittest.TestCase):
@@ -10,25 +11,25 @@ class StaticShiftCommitRuleRegressionTests(unittest.TestCase):
         agent = StaticShiftAgent(alphabet=["A", "B", "C", "D"], required_consistent_inferences=2)
         agent.reset()
 
-        # infer shift=2
-        obs0 = Observation(step_id=0, input_symbol="A", history=[], last_feedback=None)
-        res0 = StepResult(obs0, "C", True, 1.0, False, False)
-        agent.observe(obs0, "C", res0)
+        agent.observe(
+            Observation(step_id=0, input_symbol="A", history=[], last_feedback=None),
+            "C",
+            AgentFeedback(correct=True, reward=1.0, done=False),
+        )
 
-        # infer shift=1 (breaks consistency)
-        obs1 = Observation(step_id=1, input_symbol="A", history=[], last_feedback={"correct": True, "reward": 1.0})
-        res1 = StepResult(obs1, "B", False, 0.0, False, False)
-        agent.observe(obs1, "B", res1)
+        agent.observe(
+            Observation(step_id=1, input_symbol="A", history=[], last_feedback={"correct": True, "reward": 1.0}),
+            "B",
+            AgentFeedback(correct=False, reward=0.0, done=False),
+        )
 
-        # infer shift=2 again (same as first, but not consecutive)
-        obs2 = Observation(step_id=2, input_symbol="B", history=[], last_feedback={"correct": False, "reward": 0.0})
-        res2 = StepResult(obs2, "D", True, 1.0, False, False)
-        agent.observe(obs2, "D", res2)
+        agent.observe(
+            Observation(step_id=2, input_symbol="B", history=[], last_feedback={"correct": False, "reward": 0.0}),
+            "D",
+            AgentFeedback(correct=True, reward=1.0, done=False),
+        )
 
-        # If no commit happened yet, default policy is shift=1: D -> A.
-        # If agent committed too early to shift=2, output would be D -> B.
-        action = agent.act(Observation(step_id=3, input_symbol="D", history=[], last_feedback=None))
-        self.assertEqual(action, "A")
+        self.assertIsNone(agent._committed_shift)
 
 
 if __name__ == "__main__":

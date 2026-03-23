@@ -3,7 +3,8 @@ from __future__ import annotations
 import random
 
 from aceb.agents.base import BaseAgent
-from aceb.env.types import Observation, StepResult
+from aceb.agents.types import AgentFeedback
+from aceb.env.types import Observation
 
 
 class RandomAgent(BaseAgent):
@@ -23,5 +24,5 @@ class RandomAgent(BaseAgent):
 
         return self._rng.choice(self.alphabet)
 
-    def observe(self, observation: Observation, action: str, result: StepResult) -> None:
-        del observation, action, result
+    def observe(self, observation: Observation, action: str, feedback: AgentFeedback) -> None:
+        del observation, action, feedback

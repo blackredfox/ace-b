@@ -1,11 +1,33 @@
 import unittest
 
+from aceb.agents.base import BaseAgent
 from aceb.agents.random_agent import RandomAgent
 from aceb.agents.static_shift_agent import StaticShiftAgent
+from aceb.agents.types import AgentFeedback
 from aceb.config import BenchmarkConfig
 from aceb.env.environment import RCSEnvironment
+from aceb.env.types import Observation
 from aceb.generator.builder import build_episode_spec
 from aceb.runner.episode_runner import run_episode
+
+
+class FeedbackCaptureAgent(BaseAgent):
+    def __init__(self, action_symbol: str) -> None:
+        self.action_symbol = action_symbol
+        self.feedbacks: list[AgentFeedback] = []
+        self.observations: list[Observation] = []
+
+    def reset(self) -> None:
+        self.feedbacks = []
+        self.observations = []
+
+    def act(self, observation: Observation) -> str:
+        self.observations.append(observation)
+        return self.action_symbol
+
+    def observe(self, observation: Observation, action: str, feedback: AgentFeedback) -> None:
+        del observation, action
+        self.feedbacks.append(feedback)
 
 
 class EpisodeRunnerTests(unittest.TestCase):
@@ -70,6 +92,18 @@ class EpisodeRunnerTests(unittest.TestCase):
         )
 
         self.assertEqual(first, second)
+
+    def test_runner_exposes_only_agent_facing_feedback(self) -> None:
+        agent = FeedbackCaptureAgent(action_symbol=self.episode.alphabet[0])
+
+        run_episode(RCSEnvironment(self.episode), agent)
+
+        self.assertTrue(agent.feedbacks)
+        self.assertTrue(all(not hasattr(feedback, "expected_output") for feedback in agent.feedbacks))
+        self.assertTrue(all(set(feedback.__dict__.keys()) == {"correct", "reward", "done"} for feedback in agent.feedbacks))
+        self.assertTrue(
+            all("expected_output" not in history_item for observation in agent.observations for history_item in observation.history)
+        )
 
 
 if __name__ == "__main__":

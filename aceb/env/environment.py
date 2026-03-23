@@ -91,7 +91,6 @@ class RCSEnvironment:
                 "step_id": record.step_id,
                 "input_symbol": record.input_symbol,
                 "action": record.action,
-                "expected_output": record.expected_output,
                 "correct": record.correct,
             }
             for record in history_records

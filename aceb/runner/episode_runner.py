@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from aceb.agents.base import BaseAgent
+from aceb.agents.types import AgentFeedback
 from aceb.env.environment import RCSEnvironment
 from aceb.env.types import TrajectoryRecord
 
@@ -26,7 +27,11 @@ def run_episode(environment: RCSEnvironment, agent: BaseAgent) -> EpisodeRunResu
             raise ValueError("agent returned an invalid empty action")
 
         result = environment.step(action)
-        agent.observe(observation, action, result)
+        agent.observe(
+            observation,
+            action,
+            AgentFeedback(correct=result.correct, reward=result.reward, done=result.done),
+        )
 
         if result.done:
             break
