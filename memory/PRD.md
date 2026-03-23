@@ -78,6 +78,13 @@ Task 10 — Deterministic Validation Set & Sanity-Check Flow
 - Keep this as a lightweight developer-facing validation flow only
 - Reuse existing comparison and evaluator logic without adding export or UI
 
+Task 11 — Metric Validation Suite (for Kaggle / Measuring AGI)
+- Implement a focused evidence-oriented validation suite for PCM, CDL, and PR
+- Use small controlled trajectory fixtures rather than only generated runs
+- Return structured validation checks with compact metric details and expected/observed relations
+- Demonstrate construct validity, behavioral discrimination, non-redundancy, and value beyond plain accuracy
+- Keep scope limited to validation of existing metrics only
+
 ## Architecture decisions
 - Created a minimal benchmark package structure under `aceb/` aligned with the implementation plan
 - Kept primitive transformation logic in `aceb.rules.shift.ShiftRule`
@@ -98,6 +105,7 @@ Task 10 — Deterministic Validation Set & Sanity-Check Flow
 - Implemented the first evaluator layer as small pure functions in `aceb.eval`, keeping metric logic easy to inspect and test
 - Implemented the comparison layer as a thin orchestration wrapper around existing episode generation, runner, and evaluator logic, avoiding duplicated metric computation
 - Implemented the validation layer as a lightweight wrapper around the comparison layer with a fixed episode set and boolean sanity diagnostics
+- Implemented the metric validation suite as a compact evidence package built on controlled hand-constructed trajectories that reuse the evaluator rather than duplicating metric logic
 
 ## What's been implemented
 - `aceb/config.py`
@@ -121,6 +129,7 @@ Task 10 — Deterministic Validation Set & Sanity-Check Flow
 - `aceb/eval/types.py`
 - `aceb/eval/core_metrics.py`
 - `aceb/eval/comparison.py`
+- `aceb/eval/validation.py`
 - `aceb/validation/__init__.py`
 - `aceb/validation/validation_set.py`
 - `aceb/validation/run_validation.py`
@@ -138,6 +147,7 @@ Task 10 — Deterministic Validation Set & Sanity-Check Flow
 - `tests/test_core_metrics.py`
 - `tests/test_comparison_helper.py`
 - `tests/test_validation_flow.py`
+- `tests/test_metric_validation.py`
 - `tests/conftest.py`
 
 Implemented behavior:
@@ -197,22 +207,34 @@ Implemented behavior:
   - `run_validation_with_summary(config)` returning comparison + summary
   - `validate_behavioral_separation(summary)` returning boolean sanity indicators only
   - handling of static `CDL=None` as a valid “no recovery” baseline case in the diagnostic helper
-- Full current test suite passes under both `pytest` and `unittest`; latest verified pytest total is 80 passing tests
+- Metric validation suite provides:
+  - `MetricValidationCheck` and `MetricValidationSuiteResult`
+  - `validate_pcm_construct()` showing PCM rises with better pre-switch mastery
+  - `validate_cdl_window_behavior()` showing CDL does not trigger on a single lucky correct step and responds to real recovery windows
+  - `validate_pr_perseveration_specificity()` showing PR is high for obsolete-policy errors and low for non-perseverative errors
+  - `validate_metric_non_redundancy()` showing:
+    - same accuracy can yield different PR
+    - same PCM can yield different CDL
+    - same post-switch error count can yield different PR
+    - one lucky correct action does not falsely trigger CDL
+  - structured details per check with case metrics, expected relations, and observed relations
+  - reuse of existing evaluator logic via `evaluate_core_metrics()` rather than reimplementation
+- Full current test suite passes under both `pytest` and `unittest`; latest verified pytest total is 90 passing tests
 
 ## Prioritized backlog
 ### P0
-- Review validation outputs over the fixed deterministic set and decide whether the benchmark signal is strong enough to scale further
-- Add broader deterministic comparison sets only if stronger baseline separation evidence is needed
+- Review the metric validation suite as the first evidence package for the benchmark claim that adaptive intelligence is not captured by plain accuracy alone
+- Decide whether the current evidence is strong enough for presentation or whether additional controlled cases are needed
 
 ### P1
-- Expand evaluator coverage with additional metrics (AHL/PCS/EFF) once the current signal quality is accepted
-- Add small export/report helpers only after the validation flow is considered stable
+- Expand evaluator evidence later with additional metrics (AHL/PCS/EFF) only after the current core-metric claim is accepted
+- Add lightweight reporting/export helpers only after the validation story is considered stable
 
 ### P2
-- Implement larger batch evaluation, aggregate reporting, and CLI flow
+- Implement broader batch evaluation, richer benchmark analysis, and CLI flow
 - Broaden validation across larger seed/episode distributions for stronger benchmark evidence
 
 ## Next tasks
-1. Inspect the validation summary as the first benchmark sanity proof and decide whether stronger separation stress-tests are needed
-2. Extend the evaluator later with AHL, PCS, and EFF after the current validation flow is reviewed
-3. Add broader deterministic benchmark checks only if the current five-episode validation set is not enough for confidence
+1. Review the metric validation suite output as the first inspectable evidence package for PCM, CDL, and PR
+2. Decide whether you want a few more controlled scientific cases before packaging the benchmark for external review
+3. Extend later with additional metrics only after the current core validity claim is locked in
