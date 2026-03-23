@@ -1,0 +1,760 @@
+ACE-B / RCS-1 — Implementation Plan v0.4
+1. Цель этой фазы
+
+Собрать минимально рабочий продукт, который:
+
+генерирует эпизоды,
+запускает агентов,
+считает ключевые метрики,
+показывает, что benchmark реально различает типы поведения.
+
+На этом этапе мы не строим финальный Kaggle submission.
+Мы строим рабочее ядро.
+
+2. Definition of Done для текущей фазы
+
+Фаза считается завершённой, когда у нас есть:
+
+shift-family environment
+hidden switch внутри эпизода
+минимум 3 агента:
+random
+static heuristic
+adaptive
+минимум 3 метрики:
+PCM
+CDL
+PR
+логирование траекторий
+воспроизводимость по seed
+один CLI-поток:
+generate
+run
+evaluate
+3. Правильный scope первого implementation sprint
+Включаем
+только одну rule family: shift
+только один switch type: hard parameter switch
+только дискретный alphabet
+только binary feedback
+только offline evaluation
+Не включаем пока
+conditional rules
+stateful rules
+AHL / PCS / EFF
+визуализации
+Kaggle packaging
+paper layer
+
+Это важно: сначала доказать, что скелет живой.
+
+4. Архитектура репозитория
+aceb/
+  README.md
+  pyproject.toml
+  configs/
+    default.yaml
+    dev.yaml
+  aceb/
+    __init__.py
+    config.py
+
+    env/
+      __init__.py
+      episode.py
+      environment.py
+      types.py
+
+    rules/
+      __init__.py
+      base.py
+      shift.py
+
+    generator/
+      __init__.py
+      stream.py
+      sampler.py
+      builder.py
+
+    agents/
+      __init__.py
+      base.py
+      random_agent.py
+      static_shift_agent.py
+      adaptive_shift_agent.py
+
+    evaluator/
+      __init__.py
+      trajectory.py
+      metrics.py
+      summary.py
+
+    io/
+      __init__.py
+      jsonl.py
+      paths.py
+
+    cli/
+      __init__.py
+      generate.py
+      run_agent.py
+      evaluate.py
+
+    tests/
+      test_shift_rule.py
+      test_episode_builder.py
+      test_environment.py
+      test_agents.py
+      test_metrics.py
+      test_end_to_end.py
+	  
+	5. Data model: основные сущности
+
+Нам нужны простые dataclass-модели.
+
+5.1 EpisodeSpec
+
+Описывает скрытую правду эпизода.
+from dataclasses import dataclass
+from typing import List
+
+@dataclass
+class EpisodeSpec:
+    episode_id: str
+    alphabet: List[str]
+    input_stream: List[str]
+    shift_pre: int
+    shift_post: int
+    switch_step: int
+    history_window: int
+    seed: int
+
+5. Data model: основные сущности
+
+Нам нужны простые dataclass-модели.
+from dataclasses import dataclass
+from typing import List
+
+@dataclass
+class EpisodeSpec:
+    episode_id: str
+    alphabet: List[str]
+    input_stream: List[str]
+    shift_pre: int
+    shift_post: int
+    switch_step: int
+    history_window: int
+    seed: int
+
+5.1 EpisodeSpec
+
+Описывает скрытую правду эпизода.
+from dataclasses import dataclass
+from typing import List
+
+@dataclass
+class EpisodeSpec:
+    episode_id: str
+    alphabet: List[str]
+    input_stream: List[str]
+    shift_pre: int
+    shift_post: int
+    switch_step: int
+    history_window: int
+    seed: int
+	
+	5.2 Observation
+
+То, что получает агент на каждом шаге.
+from dataclasses import dataclass
+from typing import List, Optional
+
+@dataclass
+class HistoryItem:
+    step_id: int
+    input_symbol: str
+    action_symbol: str
+    correct: bool
+
+@dataclass
+class Feedback:
+    correct: bool
+    reward: float
+
+@dataclass
+class Observation:
+    episode_id: str
+    step_id: int
+    input_symbol: str
+    history: List[HistoryItem]
+    last_feedback: Optional[Feedback]
+	
+	5.3 Action
+	from dataclasses import dataclass
+
+@dataclass
+class Action:
+    output_symbol: str
+	
+	5.4 StepResult
+
+Полный шаг среды.
+
+from dataclasses import dataclass
+
+@dataclass
+class StepResult:
+    observation: Observation
+    expected_output: str
+    action: Action
+    feedback: Feedback
+    is_post_switch: bool
+    is_perseverative: bool
+	
+	from dataclasses import dataclass
+
+@dataclass
+class StepResult:
+    observation: Observation
+    expected_output: str
+    action: Action
+    feedback: Feedback
+    is_post_switch: bool
+    is_perseverative: bool
+	
+	5.5 Trajectory
+	from dataclasses import dataclass, field
+from typing import List
+
+@dataclass
+class Trajectory:
+    episode_id: str
+    steps: List[StepResult] = field(default_factory=list)
+	
+	6. Rule layer
+6.1 Base rule interface
+from abc import ABC, abstractmethod
+
+class BaseRule(ABC):
+    @abstractmethod
+    def apply(self, input_symbol: str) -> str:
+        raise NotImplementedError
+		
+	6.2 ShiftRule
+	class ShiftRule(BaseRule):
+    def __init__(self, alphabet: list[str], shift: int) -> None:
+        self.alphabet = alphabet
+        self.shift = shift
+        self.index = {symbol: i for i, symbol in enumerate(alphabet)}
+
+    def apply(self, input_symbol: str) -> str:
+        pos = self.index[input_symbol]
+        new_pos = (pos + self.shift) % len(self.alphabet)
+        return self.alphabet[new_pos]
+		
+	7. Generator layer
+
+Generator должен отдельно решать 3 задачи:
+
+сэмплировать параметры
+строить input stream
+собирать валидный EpisodeSpec
+7.1 sampler.py
+
+Функции:
+def sample_alphabet(alphabet_size: int) -> list[str]:
+    ...
+
+def sample_shift_pair(alphabet_size: int, rng: random.Random) -> tuple[int, int]:
+    ...
+	
+	Правила
+shift_pre != shift_post
+оба shift валидны
+нельзя брать 0
+7.2 stream.py
+
+Функция:
+def generate_input_stream(
+    alphabet: list[str],
+    length: int,
+    rng: random.Random,
+) -> list[str]:
+    ...
+	
+	Требования
+не полностью случайный мусор
+должны быть повторения
+не должно быть вырожденного потока из одного символа
+
+Простой старт:
+
+равномерный random choice
+плюс проверка минимального разнообразия
+7.3 builder.py
+
+Главная функция:
+def build_episode_spec(config: BenchmarkConfig, episode_index: int, seed: int) -> EpisodeSpec:
+    ...
+	
+	Проверки внутри
+switch_step в валидном диапазоне
+до switch есть достаточно шагов для обучения
+после switch есть достаточно шагов для адаптации
+shift_pre != shift_post
+8. Environment layer
+8.1 Responsibilities
+
+Environment отвечает за:
+
+выдачу observation
+приём action
+вычисление expected output
+feedback
+history window
+переключение rule по hidden switch
+8.2 Основной класс
+
+class RCSEnvironment:
+    def __init__(self, spec: EpisodeSpec) -> None:
+        ...
+
+    def reset(self) -> Observation:
+        ...
+
+    def step(self, action: Action) -> StepResult:
+        ...
+
+    @property
+    def done(self) -> bool:
+        ...
+		
+	8.3 Логика reset()
+установить current_step = 0
+history пустая
+last_feedback = None
+вернуть первое observation
+8.4 Логика step()
+
+На каждом шаге:
+
+определить активное правило:
+shift_pre, если step_id < switch_step
+shift_post, если step_id >= switch_step
+вычислить expected_output
+сравнить с action.output_symbol
+сформировать feedback
+вычислить is_perseverative
+обновить history
+продвинуть step
+вернуть StepResult
+8.5 Как считать is_perseverative
+
+Очень важно сделать это правильно.
+
+Постусловие:
+
+имеет смысл только после switch
+только если action неправильный
+и action совпадает с ответом старого правила
+
+Функция:
+
+def is_perseverative_action(
+    input_symbol: str,
+    action_symbol: str,
+    pre_rule: ShiftRule,
+    post_rule: ShiftRule,
+    is_post_switch: bool,
+) -> bool:
+    if not is_post_switch:
+        return False
+
+    expected_pre = pre_rule.apply(input_symbol)
+    expected_post = post_rule.apply(input_symbol)
+
+    if action_symbol == expected_post:
+        return False
+
+    return action_symbol == expected_pre
+	
+	9. Agent layer
+9.1 BaseAgent interface
+from abc import ABC, abstractmethod
+
+class BaseAgent(ABC):
+    @abstractmethod
+    def reset(self) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def act(self, observation: Observation) -> Action:
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        raise NotImplementedError
+		
+	9.3 StaticShiftAgent
+
+Идея:
+
+использует ранние наблюдения, чтобы оценить один shift
+после этого никогда не меняет гипотезу
+
+Это очень важный baseline.
+
+Минимальная стратегия:
+
+пока нет feedback history, предсказывать случайно
+как только накопилось достаточно наблюдений, оценить shift
+дальше применять его всегда
+
+Лучше:
+
+агент должен видеть свои прошлые correct/incorrect попытки
+можно сделать простой brute-force по всем shift и выбрать тот, который лучше всего объясняет последние correct pairs
+9.4 AdaptiveShiftAgent
+
+Идея:
+
+держит текущую гипотезу shift
+отслеживает рост ошибок
+при подозрении на switch пересобирает гипотезу
+Минимальная стратегия
+поддерживает current_shift_guess
+если серия ошибок превысила threshold, запускает reestimate_shift()
+после пересборки применяет новый shift
+Внутренние методы
+def infer_shift_from_history(...) -> int:
+    ...
+
+def should_revise_policy(...) -> bool:
+    ...
+	
+10. Runner layer
+
+Нужен простой orchestration code.
+
+10.1 run_episode
+def run_episode(agent: BaseAgent, spec: EpisodeSpec) -> Trajectory:
+    ...
+	
+Шаги:
+
+создать environment
+agent.reset()
+env.reset()
+пока not env.done
+action = agent.act(observation)
+step_result = env.step(action)
+сохранить step_result
+обновить observation
+10.2 run_benchmark
+
+def run_benchmark(agent: BaseAgent, episodes: list[EpisodeSpec]) -> list[Trajectory]:
+    ...
+	
+11. Evaluator layer
+
+Начинаем только с PCM, CDL, PR.
+def compute_pcm(trajectory: Trajectory, switch_step: int) -> float:
+    ...
+Логика:
+
+взять шаги до switch
+посчитать долю correct
+11.2 PR
+
+def compute_pr(trajectory: Trajectory) -> float:
+    ...
+	
+Логика:
+
+взять только post-switch incorrect steps
+из них доля is_perseverative == True
+
+Edge case:
+
+если post-switch incorrect steps нет, вернуть 0.0
+11.3 CDL
+
+Сейчас нужна простая и честная operational definition.
+
+Предлагаю v0.1 для кода:
+
+CDL = число шагов после switch до первого correct шага, который не является perseverative continuation
+
+Но это слишком грубо.
+
+Лучше:
+
+использовать moving window.
+
+def compute_cdl(
+    trajectory: Trajectory,
+    switch_step: int,
+    window_size: int = 3,
+    success_threshold: float = 0.67,
+) -> int:
+    ...
+	
+	Логика:
+
+идти по post-switch шагам
+для каждого окна считать accuracy
+первый window, где accuracy >= threshold, считать началом адаптации
+CDL = start_index - switch_step
+если не найдено, вернуть max post-switch length
+
+Это уже не идеально, но достаточно для MVP.
+
+11.4 Summary score
+
+Пока можно не делать полный weighted benchmark score.
+
+На MVP лучше сначала выводить:
+
+mean PCM
+mean CDL
+mean PR
+
+И только потом добавлять aggregate score.
+
+12. Serialization
+12.1 Episodes → JSONL
+
+Каждая строка = один EpisodeSpec
+
+12.2 Trajectories → JSONL
+
+Каждая строка = один serialized trajectory
+
+12.3 Metrics summary → JSON / CSV
+13. CLI design
+13.1 Generate
+
+# dir: <repo-root>
+python -m aceb.cli.generate --config configs/dev.yaml --out data/dev_episodes.jsonl
+
+13.2 Run agent
+
+# dir: <repo-root>
+python -m aceb.cli.run_agent --episodes data/dev_episodes.jsonl --agent random --out runs/random.jsonl
+
+13.3 Evaluate
+
+# dir: <repo-root>
+python -m aceb.cli.evaluate --runs runs/random.jsonl --out reports/random_metrics.json
+
+14. Config object
+
+Нужен единый config.
+from dataclasses import dataclass
+
+@dataclass
+class BenchmarkConfig:
+    alphabet_size: int
+    episode_length: int
+    switch_step_min: int
+    switch_step_max: int
+    history_window: int
+    seed: int
+	
+Dev defaults
+alphabet_size = 8
+episode_length = 30
+switch_step_min = 10
+switch_step_max = 18
+history_window = 5
+15. Порядок разработки по файлам
+
+Вот здесь самое важное.
+Писать надо не по красоте архитектуры, а по минимальному вертикальному срезу.
+
+Stage 1 — foundations
+aceb/config.py
+aceb/env/types.py
+aceb/rules/base.py
+aceb/rules/shift.py
+
+Цель:
+
+чтобы уже можно было создать rule и руками проверить преобразование
+Stage 2 — episode generation
+aceb/generator/sampler.py
+aceb/generator/stream.py
+aceb/generator/builder.py
+tests/test_shift_rule.py
+tests/test_episode_builder.py
+
+Цель:
+
+уметь строить валидный EpisodeSpec
+Stage 3 — environment loop
+aceb/env/episode.py
+aceb/env/environment.py
+tests/test_environment.py
+
+Цель:
+
+вручную прогнать один эпизод
+Stage 4 — baseline agents
+aceb/agents/base.py
+aceb/agents/random_agent.py
+aceb/agents/static_shift_agent.py
+aceb/agents/adaptive_shift_agent.py
+tests/test_agents.py
+
+Цель:
+
+уметь запускать разных агентов
+Stage 5 — runner + trajectories
+aceb/evaluator/trajectory.py
+helper run_episode
+tests/test_end_to_end.py
+
+Цель:
+
+получить trajectory на один эпизод
+Stage 6 — metrics
+aceb/evaluator/metrics.py
+aceb/evaluator/summary.py
+tests/test_metrics.py
+
+Цель:
+
+посчитать PCM, CDL, PR
+Stage 7 — CLI + IO
+aceb/io/jsonl.py
+aceb/cli/generate.py
+aceb/cli/run_agent.py
+aceb/cli/evaluate.py
+
+Цель:
+
+полный локальный pipeline
+16. Test plan
+Unit tests
+
+Нужны обязательно:
+
+test_shift_rule.py
+correct cyclic shift
+wrap-around
+invalid symbol handling
+test_episode_builder.py
+shift_pre != shift_post
+valid switch bounds
+correct stream length
+test_environment.py
+pre-rule used before switch
+post-rule used after switch
+perseveration flag works correctly
+test_agents.py
+random agent outputs valid symbol
+static agent keeps same inferred shift
+adaptive agent can revise under synthetic history
+test_metrics.py
+PCM on known trajectory
+CDL on handcrafted trajectory
+PR on handcrafted trajectory
+test_end_to_end.py
+generate → run → evaluate completes without crash
+17. Самые опасные implementation bugs
+
+Это те места, где легко всё испортить.
+
+Bug 1
+
+Неправильный boundary switch:
+
+step == switch_step трактуется по-разному в generator и evaluator
+Решение
+
+Жёстко зафиксировать:
+
+post-switch начинается при step_id >= switch_step
+Bug 2
+
+PR считается по всем post-switch errors, но не проверяется совпадение со старым правилом
+
+Решение
+
+Отдельная функция is_perseverative_action()
+
+Bug 3
+
+Static и Adaptive агенты становятся слишком похожими
+
+Решение
+
+Сделать явное различие:
+
+static никогда не reestimate
+adaptive имеет threshold-triggered revision
+Bug 4
+
+CDL слишком шумный
+
+Решение
+
+window-based detection, не single-step
+
+Bug 5
+
+Generator делает слишком лёгкие или слишком вырожденные эпизоды
+
+Решение
+
+basic validation checks in builder
+
+18. MVP milestones
+MVP-1
+
+Работает следующий сценарий:
+
+один generated episode
+один random agent
+один static agent
+PCM / PR
+MVP-2
+
+Добавляется:
+
+adaptive agent
+CDL
+end-to-end run
+MVP-3
+
+Добавляется:
+
+JSONL IO
+CLI
+batch evaluation over multiple episodes
+19. Что будет после этого
+
+Только после успешного MVP идём в:
+
+conditional rule family
+stateful family
+AHL / PCS / EFF
+plots
+benchmark cards
+competition positioning
+20. Мой жёсткий инженерный вывод
+
+Сейчас не надо писать “идеальный framework”.
+Надо писать узкий, честный, тестируемый vertical slice.
+
+Правильная стратегия:
+
+сначала доказать, что benchmark различает
+random,
+inertial,
+adaptive behavior
+потом масштабировать сложность
+
+Иначе мы утонем в архитектуре раньше, чем появится продукт.
+	
