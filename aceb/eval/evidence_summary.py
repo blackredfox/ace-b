@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from aceb.config import BenchmarkConfig
 from aceb.eval.validation import MetricValidationSuiteResult, run_metric_validation_suite
-from aceb.validation.run_validation import run_validation_with_summary, validate_behavioral_separation
+
+if TYPE_CHECKING:
+    from aceb.config import BenchmarkConfig
 
 
 @dataclass
@@ -26,6 +28,8 @@ class EvidenceSummary:
 
 
 def build_evidence_summary(config: BenchmarkConfig) -> EvidenceSummary:
+    from aceb.validation.run_validation import run_validation_with_summary, validate_behavioral_separation
+
     metric_validation = run_metric_validation_suite()
     validation_result = run_validation_with_summary(config)
     baseline_summary = validation_result["summary"]
