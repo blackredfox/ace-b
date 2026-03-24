@@ -98,6 +98,13 @@ Task 13 — Kaggle Submission Narrative + Minimal Scientific Reinforcement
 - Reuse existing evaluator functions only and keep the cases explicit and deterministic
 - Keep scope limited to framing and reinforcement, not new benchmark functionality
 
+Task 14 — Kaggle Writeup Assembly + Submission Readiness
+- Assemble a competition-ready writeup package using the existing benchmark, evidence, and results
+- Add a final Kaggle writeup draft in the required section order
+- Add a compact results snapshot, procedural dataset notes, submission checklist, and benchmark packaging readiness note
+- Keep this task focused on submission structure rather than new benchmark logic
+- Use current deterministic baseline outputs and existing evidence sources only
+
 ## Architecture decisions
 - Created a minimal benchmark package structure under `aceb/` aligned with the implementation plan
 - Kept primitive transformation logic in `aceb.rules.shift.ShiftRule`
@@ -121,6 +128,8 @@ Task 13 — Kaggle Submission Narrative + Minimal Scientific Reinforcement
 - Implemented the metric validation suite as a compact evidence package built on controlled hand-constructed trajectories that reuse the evaluator rather than duplicating metric logic
 - Implemented the reviewer-facing evidence summary as a packaging layer over the validation outputs, with structured claims and deterministic markdown rendering
 - Implemented the narrative layer as lightweight documentation plus two explicit controlled scientific cases that reinforce the core measurement claim without adding new infrastructure
+- Resolved a circular import in the evidence-summary path by moving validation imports inside `build_evidence_summary()`, making submission assembly and summary generation safe under package imports
+- Added a focused Task 14 readiness regression test to lock writeup section order, deterministic results snapshot values, checklist scope, dataset coverage, packaging-note scope, and the evidence-summary import path
 
 ## What's been implemented
 - `aceb/config.py`
@@ -151,6 +160,11 @@ Task 13 — Kaggle Submission Narrative + Minimal Scientific Reinforcement
 - `aceb/validation/run_validation.py`
 - `aceb/narrative/kaggle_submission.md`
 - `aceb/narrative/evidence_notes.md`
+- `aceb/narrative/kaggle_writeup.md`
+- `aceb/narrative/results_snapshot.md`
+- `aceb/narrative/dataset_notes.md`
+- `aceb/narrative/submission_checklist.md`
+- `aceb/narrative/benchmark_packaging_notes.md`
 - `aceb/rules/__init__.py`
 - `aceb/env/__init__.py`
 - `tests/test_shift_rule.py`
@@ -168,6 +182,7 @@ Task 13 — Kaggle Submission Narrative + Minimal Scientific Reinforcement
 - `tests/test_metric_validation.py`
 - `tests/test_evidence_summary.py`
 - `tests/test_additional_validation_cases.py`
+- `tests/test_task14_writeup_readiness.py`
 - `tests/conftest.py`
 
 Implemented behavior:
@@ -255,22 +270,32 @@ Implemented behavior:
     - same accuracy can still hide different CDL and PR
     - same post-switch error count can still produce sharply different PR
   - deterministic tests that reuse `evaluate_core_metrics()` only
-- Full current test suite passes under both `pytest` and `unittest`; latest verified pytest total is 101 passing tests
+- Submission-readiness layer now provides:
+  - `aceb/narrative/kaggle_writeup.md` in the required Kaggle section order
+  - `aceb/narrative/results_snapshot.md` with current deterministic baseline summary values
+  - `aceb/narrative/dataset_notes.md` explaining the procedural dataset and all `EpisodeSpec` fields
+  - `aceb/narrative/submission_checklist.md` with the requested checklist and Kaggle privacy note
+  - `aceb/narrative/benchmark_packaging_notes.md` listing input, output, verification logic, and grouping for future SDK migration
+  - real baseline numbers derived from the current deterministic validation config:
+    - RandomAgent: accuracy `0.19`, PCM `0.238`, CDL `8.0`, PR `0.223`
+    - StaticShiftAgent: accuracy `0.50`, PCM `0.952`, CDL `None`, PR `1.00`
+    - AdaptiveShiftAgent: accuracy `0.80`, PCM `0.952`, CDL `2.6`, PR `0.58`
+- Full current test suite passes under both `pytest` and `unittest`; latest verified pytest total is 109 passing tests
 
 ## Prioritized backlog
 ### P0
-- Review the Kaggle narrative and evidence notes as the first submission-facing package and decide whether wording needs tightening for the target audience
-- Use the new controlled reinforcement cases only as long as they add clarity without bloating the benchmark story
+- Review the final Kaggle writeup for submission tone and decide whether any wording should be tightened for judges while keeping the current evidence intact
+- Decide when to migrate the current benchmark packaging notes into the actual Kaggle Benchmarks SDK format
 
 ### P1
-- Expand evaluator evidence later with additional metrics (AHL/PCS/EFF) only after the current narrative and evidence package are accepted
-- Add lightweight export/report helpers only after the reviewer-facing package is considered stable
+- Expand evaluator evidence later with additional metrics (AHL/PCS/EFF) only after the current writeup and evidence package are accepted
+- Add lightweight export/report helpers only after the submission-facing package is considered stable
 
 ### P2
 - Implement broader batch evaluation, richer benchmark analysis, and CLI flow
 - Broaden validation across larger seed/episode distributions for stronger benchmark evidence
 
 ## Next tasks
-1. Review the Kaggle submission narrative and evidence notes for tone and clarity before external submission
-2. Decide whether the current two reinforcement cases are sufficient or whether one more tightly targeted example is needed later
-3. Extend later with additional metrics only after the current narrative and evidence layer are accepted
+1. Review the final writeup, results snapshot, and checklist as the near-final Kaggle submission package
+2. Convert the benchmark packaging notes into actual Kaggle Benchmarks SDK task definitions when you are ready
+3. Extend later with additional metrics only after the current submission-ready package is accepted
