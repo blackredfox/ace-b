@@ -20,4 +20,6 @@ Why this dataset design is useful:
 - It is **low-ambiguity**: there is no subjective labeling; correctness is rule-based.
 - It supports **controlled variation**: benchmark difficulty and episode structure can be changed without breaking determinism.
 
+All labels are generated from deterministic rule application, so ground truth is verifiable and ambiguity is minimized by construction.
+
 In short, the benchmark uses synthetic episodes to isolate adaptation under hidden rule change while keeping correctness fully auditable.

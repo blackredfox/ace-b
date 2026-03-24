@@ -10,6 +10,8 @@ Nataliia Solodkova
 
 Many evaluation setups still summarize agent quality with static accuracy. That is useful for asking whether an agent produced the right answer, but it is weak for asking how the agent behaves when the environment changes without warning. Under hidden rule change, the same final accuracy can hide very different failure modes: an agent may never learn the original rule, may learn it but detect the change slowly, or may keep applying an obsolete policy after the switch. These behaviors matter for adaptive intelligence, but accuracy collapses them into one number.
 
+This benchmark targets the **Executive Functions** track, specifically cognitive flexibility, rule switching, and resistance to perseverative errors under hidden environmental change.
+
 RCS-1 isolates this problem with procedurally generated episodes in which the transformation rule changes mid-episode without being announced to the agent. The benchmark therefore targets adaptation under hidden environmental change rather than static task performance alone.
 
 # Task & benchmark construction
@@ -42,7 +44,7 @@ On the deterministic validation set, the current baseline summary is:
 - **StaticShiftAgent** — accuracy: `0.50`, PCM: `0.952`, CDL: `None` (no recovery window detected), PR: `1.00`
 - **AdaptiveShiftAgent** — accuracy: `0.80`, PCM: `0.952`, CDL: `2.6`, PR: `0.58`
 
-These results show why accuracy alone is insufficient. Static and adaptive agents have the same strong pre-change mastery, but they differ sharply after the hidden switch: the static agent perseverates on the old rule, while the adaptive agent revises and recovers. PR captures obsolete-policy persistence directly, and CDL captures how long adaptation takes. Controlled trajectory cases also show that two runs can have the same accuracy while differing meaningfully in PR or CDL.
+These results show why accuracy alone is insufficient. Static and adaptive agents have the same strong pre-change mastery (`PCM = 0.952`), but they differ sharply in `CDL` and `PR` after the hidden switch: the static agent perseverates on the old rule, while the adaptive agent revises and recovers. PR captures obsolete-policy persistence directly, and CDL captures how long adaptation takes. Controlled trajectory cases also show that two runs can have the same accuracy while differing meaningfully in PR or CDL.
 
 The main conclusion is that accuracy can answer whether an agent failed, but it cannot reliably explain why. RCS-1 decomposes that question into mastery, detection lag, and obsolete-policy persistence, making hidden-change adaptation measurable and inspectable.
 
@@ -52,7 +54,8 @@ Independent researcher
 
 # References & citations
 
-1. Kaggle Benchmarks competition materials and submission guidelines.
-2. Chollet, F. (2019). *On the Measure of Intelligence*.
-3. Lake, B. M., Ullman, T. D., Tenenbaum, J. B., & Gershman, S. J. (2017). *Building machines that learn and think like people*.
-4. Sutton, R. S., & Barto, A. G. (2018). *Reinforcement Learning: An Introduction*.
+1. Kaggle. *Measuring Progress Toward AGI: Cognitive Abilities* competition page and submission guidelines.
+2. Google DeepMind. *Measuring Progress Toward AGI: A Cognitive Framework*.
+3. Chollet, F. (2019). *On the Measure of Intelligence*.
+4. Lake, B. M., Ullman, T. D., Tenenbaum, J. B., & Gershman, S. J. (2017). *Building machines that learn and think like people*.
+5. Sutton, R. S., & Barto, A. G. (2018). *Reinforcement Learning: An Introduction*.

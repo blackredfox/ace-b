@@ -13,4 +13,4 @@
 - [ ] Final word count checked (<1500)
 - [ ] Final Writeup submitted before deadline
 
-Note: private Kaggle resources become public after the deadline.
+Note: private Kaggle resources attached to a public writeup will become public after the deadline.

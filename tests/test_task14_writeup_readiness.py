@@ -59,6 +59,15 @@ def test_kaggle_writeup_required_section_order() -> None:
     assert positions == sorted(positions)
 
 
+def test_kaggle_writeup_explicitly_mentions_track_and_competition_aligned_references() -> None:
+    text = _read(NARRATIVE_DIR / "kaggle_writeup.md")
+
+    assert "Executive Functions" in text
+    assert "cognitive flexibility, rule switching, and resistance to perseverative errors" in text
+    assert "Measuring Progress Toward AGI: Cognitive Abilities" in text
+    assert "Measuring Progress Toward AGI: A Cognitive Framework" in text
+
+
 def test_results_snapshot_matches_current_validation_baseline_summary() -> None:
     config = BenchmarkConfig(alphabet_size=6, input_length=20, history_window=4, seed=24680)
     summary = run_validation_with_summary(config)["summary"]
@@ -91,6 +100,10 @@ def test_results_snapshot_matches_current_validation_baseline_summary() -> None:
     for agent, accuracy, pcm, cdl, pr in expected_rows:
         assert f"| {agent} | {accuracy} | {pcm} | {cdl} | {pr} |" in text
 
+    assert "same strong `PCM`" in text
+    assert "differ sharply in `CDL` and `PR`" in text
+    assert "Plain accuracy is insufficient" in text
+
 
 def test_dataset_notes_cover_required_episode_spec_and_dataset_properties() -> None:
     text = _read(NARRATIVE_DIR / "dataset_notes.md")
@@ -110,6 +123,7 @@ def test_dataset_notes_cover_required_episode_spec_and_dataset_properties() -> N
     lower = text.lower()
     assert "procedural" in lower
     assert "verifiable" in lower
+    assert "ground truth is verifiable and ambiguity is minimized by construction" in lower
 
 
 def test_submission_checklist_contains_required_items_and_privacy_note() -> None:
@@ -130,7 +144,7 @@ def test_submission_checklist_contains_required_items_and_privacy_note() -> None
     for item in required_items:
         assert item in text
 
-    assert "private kaggle resources become public after the deadline" in text.lower()
+    assert "private kaggle resources attached to a public writeup will become public after the deadline" in text.lower()
 
 
 def test_benchmark_packaging_notes_cover_input_output_verification_and_grouping() -> None:

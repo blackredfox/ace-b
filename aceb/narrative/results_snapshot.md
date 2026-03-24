@@ -10,5 +10,5 @@ Deterministic validation summary over the fixed five-episode validation set:
 
 Interpretation:
 
-- Static and Adaptive have the same strong pre-change mastery (`PCM = 0.952`), but Adaptive recovers after the switch while Static remains stuck on the obsolete rule.
-- PR reveals behavior that accuracy misses: Static’s post-switch errors are fully old-rule-consistent (`PR = 1.00`), while Adaptive reduces perseverative errors even when it is not perfect.
+- StaticShiftAgent and AdaptiveShiftAgent show the same strong `PCM` (`0.952`), but differ sharply in `CDL` and `PR`: Adaptive recovers, while Static remains stuck on the obsolete rule.
+- Plain accuracy is insufficient to distinguish these failure modes: `PR` shows that Static’s post-switch errors are fully old-rule-consistent (`1.00`), while Adaptive reduces perseverative errors (`0.58`).
