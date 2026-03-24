@@ -111,3 +111,5 @@
 *.env
 *.env.*
 .emergent/
+memory/
+.emergent/
