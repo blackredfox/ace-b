@@ -105,6 +105,13 @@ Task 14 — Kaggle Writeup Assembly + Submission Readiness
 - Keep this task focused on submission structure rather than new benchmark logic
 - Use current deterministic baseline outputs and existing evidence sources only
 
+Task 14 Patch — Final Writeup Corrections Before Kaggle SDK Migration
+- Add an explicit Executive Functions track sentence to the writeup
+- Strengthen references with the official competition citation and DeepMind framework reference
+- Sharpen the results language around similar PCM but different CDL/PR and why accuracy is insufficient
+- Add an explicit deterministic-label verifiability sentence to dataset notes
+- Clarify the public/private Kaggle resource note in the checklist
+
 ## Architecture decisions
 - Created a minimal benchmark package structure under `aceb/` aligned with the implementation plan
 - Kept primitive transformation logic in `aceb.rules.shift.ShiftRule`
@@ -130,6 +137,7 @@ Task 14 — Kaggle Writeup Assembly + Submission Readiness
 - Implemented the narrative layer as lightweight documentation plus two explicit controlled scientific cases that reinforce the core measurement claim without adding new infrastructure
 - Resolved a circular import in the evidence-summary path by moving validation imports inside `build_evidence_summary()`, making submission assembly and summary generation safe under package imports
 - Added a focused Task 14 readiness regression test to lock writeup section order, deterministic results snapshot values, checklist scope, dataset coverage, packaging-note scope, and the evidence-summary import path
+- Applied a final reviewer-facing wording patch so the writeup explicitly names the Executive Functions track, aligns references with the competition framing, and states dataset verifiability and accuracy-insufficiency claims more directly
 
 ## What's been implemented
 - `aceb/config.py`
@@ -270,7 +278,7 @@ Implemented behavior:
     - same accuracy can still hide different CDL and PR
     - same post-switch error count can still produce sharply different PR
   - deterministic tests that reuse `evaluate_core_metrics()` only
-- Submission-readiness layer now provides:
+- Submission-readiness layer provides:
   - `aceb/narrative/kaggle_writeup.md` in the required Kaggle section order
   - `aceb/narrative/results_snapshot.md` with current deterministic baseline summary values
   - `aceb/narrative/dataset_notes.md` explaining the procedural dataset and all `EpisodeSpec` fields
@@ -280,7 +288,13 @@ Implemented behavior:
     - RandomAgent: accuracy `0.19`, PCM `0.238`, CDL `8.0`, PR `0.223`
     - StaticShiftAgent: accuracy `0.50`, PCM `0.952`, CDL `None`, PR `1.00`
     - AdaptiveShiftAgent: accuracy `0.80`, PCM `0.952`, CDL `2.6`, PR `0.58`
-- Full current test suite passes under both `pytest` and `unittest`; latest verified pytest total is 109 passing tests
+- Final writeup patch now also ensures:
+  - the writeup explicitly names the **Executive Functions** track and the targeted capability domain
+  - the references explicitly include the official Kaggle competition and the Google DeepMind cognitive framework
+  - the results wording directly states that Static and Adaptive share similar PCM but diverge on CDL and PR, so accuracy alone is insufficient
+  - dataset notes explicitly state that all labels come from deterministic rule application, making ground truth verifiable and ambiguity minimized by construction
+  - the checklist clearly states that private Kaggle resources attached to a public writeup become public after the deadline
+- Full current test suite passes under both `pytest` and `unittest`; latest verified readiness patch check is 9/9 passing targeted tests
 
 ## Prioritized backlog
 ### P0
@@ -296,6 +310,6 @@ Implemented behavior:
 - Broaden validation across larger seed/episode distributions for stronger benchmark evidence
 
 ## Next tasks
-1. Review the final writeup, results snapshot, and checklist as the near-final Kaggle submission package
-2. Convert the benchmark packaging notes into actual Kaggle Benchmarks SDK task definitions when you are ready
+1. Review the final writeup wording one last time for judge-facing clarity
+2. Convert the benchmark packaging notes into actual Kaggle Benchmarks SDK task definitions when ready
 3. Extend later with additional metrics only after the current submission-ready package is accepted
