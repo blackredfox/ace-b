@@ -112,6 +112,13 @@ Task 14 Patch — Final Writeup Corrections Before Kaggle SDK Migration
 - Add an explicit deterministic-label verifiability sentence to dataset notes
 - Clarify the public/private Kaggle resource note in the checklist
 
+Task 15 — Kaggle Benchmarks SDK Migration (Thin Adapter)
+- Build a thin Kaggle-facing adapter layer without rewriting the ACE-B core
+- Add at least one deterministic task prototype and a small benchmark grouping over fixed episode IDs
+- Reuse existing generation, environment, runner, and evaluator logic as the scoring source of truth
+- Document exact SDK hookup points, limitations, and submission-facing repository boundaries
+- Keep the migration explicit, reviewable, and easy to swap onto the real Kaggle SDK later
+
 ## Architecture decisions
 - Created a minimal benchmark package structure under `aceb/` aligned with the implementation plan
 - Kept primitive transformation logic in `aceb.rules.shift.ShiftRule`
@@ -138,6 +145,7 @@ Task 14 Patch — Final Writeup Corrections Before Kaggle SDK Migration
 - Resolved a circular import in the evidence-summary path by moving validation imports inside `build_evidence_summary()`, making submission assembly and summary generation safe under package imports
 - Added a focused Task 14 readiness regression test to lock writeup section order, deterministic results snapshot values, checklist scope, dataset coverage, packaging-note scope, and the evidence-summary import path
 - Applied a final reviewer-facing wording patch so the writeup explicitly names the Executive Functions track, aligns references with the competition framing, and states dataset verifiability and accuracy-insufficiency claims more directly
+- Implemented the Kaggle adapter as a thin serializable boundary around the existing ACE-B core rather than speculative SDK-specific rewrites, with real scoring routed through `RCSEnvironment` and `evaluate_core_metrics()`
 
 ## What's been implemented
 - `aceb/config.py`
@@ -173,6 +181,10 @@ Task 14 Patch — Final Writeup Corrections Before Kaggle SDK Migration
 - `aceb/narrative/dataset_notes.md`
 - `aceb/narrative/submission_checklist.md`
 - `aceb/narrative/benchmark_packaging_notes.md`
+- `aceb/kaggle/__init__.py`
+- `aceb/kaggle/task_adapter.py`
+- `aceb/kaggle/benchmark_adapter.py`
+- `aceb/kaggle/README.md`
 - `aceb/rules/__init__.py`
 - `aceb/env/__init__.py`
 - `tests/test_shift_rule.py`
@@ -191,6 +203,7 @@ Task 14 Patch — Final Writeup Corrections Before Kaggle SDK Migration
 - `tests/test_evidence_summary.py`
 - `tests/test_additional_validation_cases.py`
 - `tests/test_task14_writeup_readiness.py`
+- `tests/test_kaggle_adapter.py`
 - `tests/conftest.py`
 
 Implemented behavior:
@@ -288,21 +301,26 @@ Implemented behavior:
     - RandomAgent: accuracy `0.19`, PCM `0.238`, CDL `8.0`, PR `0.223`
     - StaticShiftAgent: accuracy `0.50`, PCM `0.952`, CDL `None`, PR `1.00`
     - AdaptiveShiftAgent: accuracy `0.80`, PCM `0.952`, CDL `2.6`, PR `0.58`
-- Final writeup patch now also ensures:
-  - the writeup explicitly names the **Executive Functions** track and the targeted capability domain
-  - the references explicitly include the official Kaggle competition and the Google DeepMind cognitive framework
-  - the results wording directly states that Static and Adaptive share similar PCM but diverge on CDL and PR, so accuracy alone is insufficient
-  - dataset notes explicitly state that all labels come from deterministic rule application, making ground truth verifiable and ambiguity minimized by construction
-  - the checklist clearly states that private Kaggle resources attached to a public writeup become public after the deadline
-- Full current test suite passes under both `pytest` and `unittest`; latest verified readiness patch check is 9/9 passing targeted tests
+  - explicit Executive Functions track naming, competition-aligned references, sharpened results language, deterministic-label verifiability, and clear resource-privacy wording
+- Kaggle adapter layer now provides:
+  - `KaggleEpisodeTask` as a serializable episode-level task wrapper
+  - `KaggleEpisodeTaskResult` for machine-checkable task results
+  - `build_kaggle_episode_task()` for deterministic task construction from the existing generator
+  - `score_kaggle_episode_actions()` for local fallback scoring of a full action sequence through `RCSEnvironment`
+  - `run_kaggle_episode_task_with_agent()` for a working prototype path through the existing agent + runner stack
+  - `KaggleBenchmarkGroup` for deterministic benchmark grouping
+  - `build_task_prototype()` for one reviewable task instance
+  - `build_validation_benchmark()` for a small fixed review set over validation episode IDs
+  - a practical `aceb/kaggle/README.md` describing task input, expected output, verification path, real SDK hookup points, known limitations, manual Kaggle steps, and submission-facing repository boundaries including dev-only artifacts like `.emergent/`, `test_reports/`, `tests/`, and caches
+- Full current test suite passes under both `pytest` and `unittest`; latest verified full pytest total is 117 passing tests
 
 ## Prioritized backlog
 ### P0
-- Review the final Kaggle writeup for submission tone and decide whether any wording should be tightened for judges while keeping the current evidence intact
-- Decide when to migrate the current benchmark packaging notes into the actual Kaggle Benchmarks SDK format
+- Convert the current thin adapter into actual Kaggle task notebooks / `@kbench.task` definitions once the SDK-backed submission environment is available
+- Validate that Kaggle task execution can preserve the intended multi-turn episode interaction rather than only the local action-sequence fallback
 
 ### P1
-- Expand evaluator evidence later with additional metrics (AHL/PCS/EFF) only after the current writeup and evidence package are accepted
+- Expand evaluator evidence later with additional metrics (AHL/PCS/EFF) only after the current writeup and adapter package are accepted
 - Add lightweight export/report helpers only after the submission-facing package is considered stable
 
 ### P2
@@ -310,6 +328,6 @@ Implemented behavior:
 - Broaden validation across larger seed/episode distributions for stronger benchmark evidence
 
 ## Next tasks
-1. Review the final writeup wording one last time for judge-facing clarity
-2. Convert the benchmark packaging notes into actual Kaggle Benchmarks SDK task definitions when ready
-3. Extend later with additional metrics only after the current submission-ready package is accepted
+1. Map `aceb/kaggle/task_adapter.py` into real Kaggle task notebooks when the SDK environment is available
+2. Attach the deterministic validation benchmark group in Kaggle UI as the first review set
+3. Keep the ACE-B core unchanged while migrating only the thin adapter boundary into the final submission format
